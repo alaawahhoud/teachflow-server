@@ -1,0 +1,56 @@
+[
+  {
+    "id": "u1",
+    "full_name": "Admin User",
+    "email": "admin@teachflow.edu",
+    "username": "admin",
+    "password": "1234",
+    "role": "Admin",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "u2",
+    "full_name": "Mr. Karim",
+    "email": "karim@teachflow.edu",
+    "username": "karim",
+    "password": "1234",
+    "role": "Teacher",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "u3",
+    "full_name": "Ms. Sarah",
+    "email": "sarah@teachflow.edu",
+    "username": "sarah",
+    "password": "1234",
+    "role": "Teacher",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "fb4469eb-434d-42a7-ab76-3907a5063265",
+    "full_name": "Alaa Wahhoud",
+    "email": "alaawahhoud1@gmail.com",
+    "username": "alaa",
+    "password": "1234",
+    "role": "Teacher",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "b775c99b-0a12-4d47-94f4-92136ee89099",
+    "full_name": "admin",
+    "email": null,
+    "username": "admin1",
+    "password": "1234",
+    "role": "Teacher",
+    "status": "ACTIVE"
+  },
+  {
+    "id": "8dc96c5d-f67d-4bbf-a912-719bb34eed76",
+    "full_name": "Alaa Wahhoud",
+    "email": "alaawahhoud1@gmail.com",
+    "username": "alaa1",
+    "password": "1234",
+    "role": "Teacher",
+    "status": "ACTIVE"
+  }
+]
