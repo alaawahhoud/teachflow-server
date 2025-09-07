@@ -1,3 +1,4 @@
+// src/routes/users.routes.js
 import { Router } from "express";
 import multer from "multer";
 import {
@@ -6,24 +7,45 @@ import {
   getUser,
   updateUser,
   createUser,
-  updateCredentials,   // ⬅️ جديد
+  updateCredentials, // تعديل username/password (أو email + password)
   debugEcho,
 } from "../controllers/users.controller.js";
 
 const router = Router();
 const upload = multer();
 
+/* حارس بسيط للـ :id (اختياري بس مفيد) */
+router.param("id", (req, res, next, id) => {
+  if (!/^\d+$/.test(String(id))) {
+    return res.status(400).json({ ok: false, message: "Invalid user id" });
+  }
+  next();
+});
+
+/* قراءة */
 router.get("/teachers", listTeachers);
 router.get("/", listUsers);
 router.get("/:id", getUser);
 
-// يقبل JSON و FormData
+/* تعديل بيانات عامة (يقبل JSON و FormData) */
 router.patch("/:id", upload.none(), updateUser);
 
-// ⬇️ جديد: تعديل username/password
+/* تعديل بيانات الاعتماد (username/email/password) – المسار الأساسي */
 router.patch("/:id/credentials", upload.none(), updateCredentials);
 
+/* Alias اختياري لتغيير كلمة السر فقط: PUT /api/users/:id/password
+   بيعيد استخدام updateCredentials بدون الحاجة لتغيير الكنترولر */
+router.put("/:id/password", upload.none(), (req, res, next) => {
+  // نخلي الـ body يحوي فقط password إذا وصل payload مختلط
+  const pwd = req.body?.password;
+  req.body = { password: pwd };
+  return updateCredentials(req, res, next);
+});
+
+/* إنشاء */
 router.post("/", upload.none(), createUser);
+
+/* Debug */
 router.post("/__debug/echo", upload.none(), debugEcho);
 
 export default router;
