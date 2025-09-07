@@ -28,7 +28,7 @@ const corsOptions = {
 
 app.set("trust proxy", 1);
 app.use(cors(corsOptions));
-app.options('/api/auth/login', (req, res) => res.sendStatus(204));
+app.options('/api/auth/login', cors()); // كمان بيمشي
 
 /* ---------- Body parsers ---------- */
 app.use(express.json({ limit: "2mb" }));
