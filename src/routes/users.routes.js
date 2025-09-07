@@ -14,13 +14,6 @@ import {
 const router = Router();
 const upload = multer();
 
-/* حارس بسيط للـ :id (اختياري بس مفيد) */
-router.param("id", (req, res, next, id) => {
-  if (!/^\d+$/.test(String(id))) {
-    return res.status(400).json({ ok: false, message: "Invalid user id" });
-  }
-  next();
-});
 
 /* قراءة */
 router.get("/teachers", listTeachers);
