@@ -40,7 +40,6 @@ router.post("/scan", async (req, res) => {
       return res.json({ ok: true, action: "unknown" });
     }
 
-    // توافق: بعض الفيرموير يرسل enroll_ok هنا
     if (status === "enroll_ok") {
       if (!deviceId || !pageId) return res.status(400).json({ message: "deviceId and pageId required" });
 

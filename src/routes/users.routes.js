@@ -16,7 +16,20 @@ const upload = multer();
 
 
 /* قراءة */
-router.get("/teachers", listTeachers);
+router.get("/teachers", async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, full_name
+         FROM users
+        WHERE role IN ('Teacher','Coordinator','Cycle Head')
+        ORDER BY full_name ASC`
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("[GET /users/teachers]", e);
+    res.status(500).json({ message: "Failed" });
+  }
+});
 router.get("/", listUsers);
 router.get("/:id", getUser);
 
