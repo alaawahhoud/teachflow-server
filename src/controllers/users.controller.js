@@ -1,5 +1,5 @@
 // src/controllers/users.controller.js
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import pool from "../db.js";
 import { ok, created } from "../utils/http.js";
 
