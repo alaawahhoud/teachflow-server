@@ -1,28 +1,10 @@
 // src/routes/esp-compat.routes.js
 import express from "express";
-import pool from "../db.js"; // عدّلي المسار إذا لزم
+import pool from "../db.js";
 
 const router = express.Router();
 
-// نفس عدد خانات الحساس
-const MAX_SLOT = Number(process.env.FP_MAX_SLOT || 200);
-
-/** آخر حالة طلب تسجيل لمستخدم */
-async function getLatestEnrollStatus(userId) {
-  const [rows] = await pool.query(
-    "SELECT device_id, page_id, status, note, created_at, updated_at " +
-    "FROM fp_enroll_queue WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
-    [userId]
-  );
-  return rows[0] || null;
-}
-
-/* ===================== /api/scan ===================== *
- * يستقبل:
- *  - { deviceId, status:"match", pageId, score }
- *  - { deviceId, status:"unknown" }
- *  - (توافق) { deviceId, status:"enroll_ok", pageId }
- */
+/* ===================== /api/scan (compat) ===================== */
 router.post("/scan", async (req, res) => {
   const { deviceId, status, pageId, score } = req.body || {};
   if (!status) return res.status(400).json({ message: "status required" });
@@ -39,14 +21,14 @@ router.post("/scan", async (req, res) => {
 
       const uid = Number(u[0].user_id);
 
-      // امنع تكرار الإدخال خلال 5 دقايق
       const [dup] = await pool.query(
-        "SELECT 1 FROM attendance WHERE user_id=? AND matched_at >= (NOW() - INTERVAL 5 MINUTE) ORDER BY matched_at DESC LIMIT 1",
+        "SELECT 1 FROM attendance WHERE user_id=? AND created_at >= (NOW() - INTERVAL 5 MINUTE) " +
+        "ORDER BY created_at DESC LIMIT 1",
         [uid]
       );
       if (!dup.length) {
         await pool.query(
-          "INSERT INTO attendance (user_id, device_id, page_id, score) VALUES (?, ?, ?, ?)",
+          "INSERT INTO attendance (user_id, device_id, page_id, score, created_at) VALUES (?, ?, ?, ?, NOW())",
           [uid, String(deviceId), Number(pageId), (score != null ? Number(score) : null)]
         );
       }
@@ -55,11 +37,10 @@ router.post("/scan", async (req, res) => {
     }
 
     if (status === "unknown") {
-      // بس acknowledgment — الواجهة هي يلي بتعمل enroll-request ليوزر معيّن
       return res.json({ ok: true, action: "unknown" });
     }
 
-    // توافق: لو الفرمواير بيرسل enroll_ok عبر /api/scan
+    // توافق: بعض الفيرموير يرسل enroll_ok هنا
     if (status === "enroll_ok") {
       if (!deviceId || !pageId) return res.status(400).json({ message: "deviceId and pageId required" });
 
@@ -95,10 +76,7 @@ router.post("/scan", async (req, res) => {
   }
 });
 
-/* ===================== /api/command ===================== *
- * ترجّع أمر 'enroll' إذا في pending لهذا الجهاز
- * شكل الرد: { action:"enroll", pageId, user_id?, name? } أو { action:"none" }
- */
+/* ===================== /api/command (compat) ===================== */
 router.get("/command", async (req, res) => {
   const deviceId = String(req.query.deviceId || "");
   if (!deviceId) return res.json({ action: "none" });
@@ -125,10 +103,7 @@ router.get("/command", async (req, res) => {
   }
 });
 
-/* ===================== /api/enroll/result ===================== *
- * الفرمواير عندك بيرسل { pageId, ok } (بدون deviceId)
- * بما إنّو في جهاز واحد، منعتبر آخر pending بنفس الـ pageId هو الهدف.
- */
+/* ===================== /api/enroll/result (compat) ===================== */
 router.post("/enroll/result", async (req, res) => {
   let { pageId, ok } = req.body || {};
   if (!pageId) return res.status(400).json({ message: "pageId required" });

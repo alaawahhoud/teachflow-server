@@ -50,9 +50,9 @@ import subjectsRoutes from "./routes/subjects.routes.js";
 import examsRoutes from "./routes/exams.routes.js";
 import studentStatusWeeksRoutes from "./routes/studentStatusWeeks.routes.js"; // ⬅️ جديد
 import scheduleRoutes from "./routes/schedule.routes.js";
-import fingerprintsRoutes from "./routes/fingerprints.routes.js"; // ⬅️ جديد
+import fingerprints from "./routes/fingerprints.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js"; // عرض/سحب الحضور
-import espCompatRoutes from "./routes/esp-compat.routes.js";
+import espCompat from "./routes/esp-compat.routes.js";
 
 // صحّح البادئات لتكون واضحة
 app.use("/api/auth", authRoutes);
@@ -63,9 +63,9 @@ app.use("/api/subjects", subjectsRoutes);
 app.use("/api/exams", examsRoutes);
 app.use("/api/student-status-weeks", studentStatusWeeksRoutes);
 app.use("/api/schedule", scheduleRoutes);
-app.use("/api/fingerprints", fingerprintsRoutes);
+app.use("/api/fingerprints", fingerprints); // يعطي /api/fingerprints/enroll-request + /enroll-status + /command + /scan
 app.use("/api/attendance", attendanceRoutes);
-app.use("/api", espCompatRoutes); // /api/scan, /api/command, /api/enroll/result
+app.use("/api", espCompat);                 // يعطي /api/scan + /api/command + /api/enroll/result
 
 /* ---------- Health & Diagnostics ---------- */
 app.get("/__ping", (_req, res) => res.json({ ok: true }));
