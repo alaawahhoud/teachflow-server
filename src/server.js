@@ -8,6 +8,33 @@ dotenv.config();
 const app = express();
 
 /* ---------- CORS (Allowlist + Preflight) ---------- */
+// ✅ Express v5-friendly global preflight handler
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    const origin = req.headers.origin;
+    const allowed =
+      !origin || rawAllow.length === 0 || rawAllow.includes(origin);
+
+    if (!allowed) {
+      return res.status(403).send("Not allowed by CORS");
+    }
+
+    // رجّع نفس الـ Origin (لا تستخدم * إذا بدك credentials)
+    if (origin) res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      req.headers["access-control-request-headers"] || "Content-Type, Authorization"
+    );
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 const rawAllow = (process.env.CORS_ORIGINS || process.env.FRONTEND_ORIGIN || "")
   .split(",")
   .map(s => s.trim())
@@ -31,7 +58,6 @@ app.set("trust proxy", 1);
 app.use(cors(corsOptions));
 
 // ✅ مهم: فعّلي كل الـ preflight على كل المسارات
-app.options("*", cors(corsOptions));
 // أو بديل مضمون أكثر (يرجع 204 بسرعة):
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
