@@ -1,9 +1,6 @@
-// src/controllers/attendance.controller.js
 import pool from "../db.js";
 
-/* ===================== Helpers ===================== */
-
-// محاولة جلب قيمة من settings
+/* ========== Helpers ========== */
 async function getSetting(key, fallback = null) {
   try {
     const [rows] = await pool.query("SELECT v FROM settings WHERE k=? LIMIT 1", [key]);
@@ -13,7 +10,6 @@ async function getSetting(key, fallback = null) {
   }
 }
 
-// إضافة دقائق على وقت بصيغة HH:MM:SS
 function addMinutesToHMS(hms, minutes = 0) {
   if (!hms) return null;
   const [H, M, S] = hms.split(":").map(Number);
@@ -27,126 +23,86 @@ function addMinutesToHMS(hms, minutes = 0) {
 
 function toTimeStringOrNull(t) {
   if (!t) return null;
-  // يدعم Date أو string من MySQL
   if (typeof t === "string") return t.slice(0, 8);
-  try {
-    return new Date(t).toTimeString().slice(0, 8);
-  } catch {
-    return null;
-  }
+  try { return new Date(t).toTimeString().slice(0, 8); } catch { return null; }
 }
 
-function safeJSON(v) {
-  try { return JSON.parse(v); } catch { return null; }
-}
+function safeJSON(v) { try { return JSON.parse(v); } catch { return null; } }
 
-// استنتاج يوم الأسبوع (0=أحد .. 6=سبت) — نستخدم نفس منطق JS
 function dowIndex(dateStr) {
-  // JS: 0=Sun ... 6=Sat
   const d = dateStr ? new Date(dateStr) : new Date();
-  return d.getDay();
+  return d.getDay(); // 0..6
 }
 
-// قراءة وقت الدوام لليوم (من teacher_profile) إن وجد
-async function getUserDayStartEnd(userId, dateStr) {
-  const [rows] = await pool.query(
-    `SELECT 
-       COALESCE(work_start_time, shift_start, start_time) AS base_start,
-       COALESCE(work_end_time,   shift_end,   end_time)   AS base_end,
-       availability_json, schedule_json
-     FROM teacher_profile
-     WHERE user_id = ?
-     LIMIT 1`,
-    [userId]
-  );
-  const r = rows[0] || {};
-  let start = toTimeStringOrNull(r.base_start);
-  let end   = toTimeStringOrNull(r.base_end);
-
-  const av = safeJSON(r.availability_json) || safeJSON(r.schedule_json);
-  if (av) {
-    const di = dowIndex(dateStr); // 0..6
-    // نحاول أشكال شائعة: av[di] أو av.days[di] أو av[["sun","mon"...]]
-    const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
-    const candidates = [
-      av?.[di],
-      av?.days?.[di],
-      av?.[dayKeys[di]],
-      av?.days?.[dayKeys[di]],
-    ].filter(Boolean);
-
-    for (const c of candidates) {
-      const s = c?.start || c?.from || c?.begin || c?.start_time;
-      const e = c?.end   || c?.to   || c?.finish || c?.end_time;
-      if (s && !start) start = String(s).slice(0,8);
-      if (e && !end)   end   = String(e).slice(0,8);
-      if (start && end) break;
-    }
-  }
-
-  return { start, end };
-}
-
-// إرجاع مهلة التأخير بالدقائق من settings وإلا 10
 async function getLateGraceMinutes() {
   const v = await getSetting("late_grace_minutes", null);
   const n = Number(v);
   return Number.isFinite(n) ? n : 10;
 }
 
-// حساب حالة الحضور من check-in والـ cutoff
 function computeStatusFromTimes(checkIn, cutoff) {
-  const t = checkIn ? String(checkIn).slice(0,8) : null;
+  const t = checkIn ? String(checkIn).slice(0, 8) : null;
   if (!t) return "Absent";
   return t > cutoff ? "Late" : "Present";
 }
 
-// cutoff خاص لكل أستاذ: start_time + grace، وإلا fallback من settings أو 07:40:00
 async function computeUserCutoff(userId, dateStr) {
-  const { start } = await getUserDayStartEnd(userId, dateStr);
-  const grace = await getLateGraceMinutes(); // دقائق
+  const [rows] = await pool.query(
+    `SELECT COALESCE(work_start_time, shift_start, start_time) AS base_start,
+            COALESCE(work_end_time,   shift_end,   end_time)   AS base_end,
+            availability_json, schedule_json
+       FROM teacher_profile
+      WHERE user_id = ?
+      LIMIT 1`, [userId]
+  );
+  const r = rows?.[0] || {};
+  let start = toTimeStringOrNull(r.base_start);
+  const av = safeJSON(r.availability_json) || safeJSON(r.schedule_json);
+  if (!start && av) {
+    const di = dowIndex(dateStr);
+    const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
+    const candidates = [av?.[di], av?.days?.[di], av?.[dayKeys[di]], av?.days?.[dayKeys[di]]].filter(Boolean);
+    for (const c of candidates) {
+      const s = c?.start || c?.from || c?.begin || c?.start_time;
+      if (s) { start = String(s).slice(0,8); break; }
+    }
+  }
+  const grace = await getLateGraceMinutes();
   if (start) return addMinutesToHMS(start, grace);
-  // fallback عام من settings.late_cutoff أو 07:40:00
   const globalCutoff = await getSetting("late_cutoff", "07:40:00");
   return String(globalCutoff).slice(0,8);
 }
 
-/* ===================== Controllers ===================== */
+/* ========== Controllers ========== */
 
-/**
- * GET /api/attendance
- * query: date=YYYY-MM-DD, teacherId|teacherName, status=(Present,Late,Absent), class=...
- * NOTE: نرجّع Array مباشرة ليتوافق مع Attendance.jsx (أو بيقرأ {data:[]} كمان).
- */
+// GET /api/attendance?date=YYYY-MM-DD&teacherId|teacherName&status=Present,Late&class=ID
 export async function listAttendance(req, res) {
   try {
     const date = req.query.date || new Date().toISOString().slice(0,10);
     const teacherId = Number(req.query.teacherId || req.query.teacher_id || 0) || null;
     const teacherName = req.query.teacherName || null;
     const classFilter = req.query.class || null;
-    const statusParam = req.query.status || null; // ممكن "Present,Late"
-    const statusSet = statusParam ? new Set(String(statusParam).split(",").map((s)=>s.trim())) : null;
+    const statusParam = req.query.status || null;
+    const statusSet = statusParam ? new Set(String(statusParam).split(",").map(s => s.trim())) : null;
 
-    // المسموح حضور لهم (نستثني Director حسب طلبك)
     const [teachers] = await pool.query(
-      `SELECT id, full_name 
+      `SELECT id, full_name
          FROM users
         WHERE role IN ('Teacher','Coordinator','Principal','Admin','IT Support','Cycle Head')
         ORDER BY full_name ASC`
     );
 
-    // حضور اليوم
     const [attRows] = await pool.query(
-      `SELECT user_id, date, TIME_FORMAT(check_in_time, '%H:%i:%s') AS check_in_time,
+      `SELECT user_id, date,
+              TIME_FORMAT(check_in_time, '%H:%i:%s') AS check_in_time,
               TIME_FORMAT(check_out_time, '%H:%i:%s') AS check_out_time,
               status, note, device_id, page_id, score
          FROM attendance
-        WHERE date = ?`,
-      [date]
+        WHERE date = ?`, [date]
     );
     const byUser = new Map(attRows.map(r => [Number(r.user_id), r]));
 
-    // نجمع teacher_profile لكل الأساتذة ضربة واحدة لاحتساب cutoff بالسرعة
+    // profiles (للاحتساب فقط؛ اسم الصف سيُدمج بالفرونت)
     const ids = teachers.map(t => t.id);
     let profilesMap = new Map();
     if (ids.length) {
@@ -162,7 +118,6 @@ export async function listAttendance(req, res) {
       profilesMap = new Map(pRows.map(r => [Number(r.user_id), r]));
     }
 
-    // نجهّز اللائحة
     const grace = await getLateGraceMinutes();
     const globalCutoff = (await getSetting("late_cutoff", "07:40:00")).slice(0,8);
 
@@ -173,7 +128,7 @@ export async function listAttendance(req, res) {
 
       const a = byUser.get(t.id) || null;
 
-      // cutoff خاص للمعلّم
+      // cutoff per teacher
       let cutoff = globalCutoff;
       const prof = profilesMap.get(t.id);
       if (prof) {
@@ -182,9 +137,7 @@ export async function listAttendance(req, res) {
         if (!start && av) {
           const di = dowIndex(date);
           const dayKeys = ["sun","mon","tue","wed","thu","fri","sat"];
-          const candidates = [
-            av?.[di], av?.days?.[di], av?.[dayKeys[di]], av?.days?.[dayKeys[di]],
-          ].filter(Boolean);
+          const candidates = [av?.[di], av?.days?.[di], av?.[dayKeys[di]], av?.days?.[dayKeys[di]]].filter(Boolean);
           for (const c of candidates) {
             const s = c?.start || c?.from || c?.begin || c?.start_time;
             if (s) { start = String(s).slice(0,8); break; }
@@ -194,11 +147,9 @@ export async function listAttendance(req, res) {
       }
 
       const status = a?.status || computeStatusFromTimes(a?.check_in_time, cutoff);
-
-      // فلترة الحالة
       if (statusSet && !statusSet.has(status)) continue;
 
-      // ملاحظة: class/subject placeholders — فيك تربطي لاحقاً من جداولك
+      // class/subject placeholders — رح تنعكس أسماء الصفوف بالفرونت من DB
       const row = {
         id: t.id,
         name: t.full_name,
@@ -210,13 +161,11 @@ export async function listAttendance(req, res) {
         check_out_time: a?.check_out_time || "",
       };
 
-      // فلتر الصف (حاليّاً الكل "—")؛ إذا بدّك تربطيه لاحقاً، بيصير meaningful
       if (classFilter && classFilter !== "All Classes" && row.class !== classFilter) continue;
 
       list.push(row);
     }
 
-    // رجّع Array مباشرة (الـFrontend بيمشي هيك)
     res.json(list);
   } catch (e) {
     console.error("[listAttendance]", e);
@@ -224,11 +173,7 @@ export async function listAttendance(req, res) {
   }
 }
 
-/**
- * POST /api/attendance
- * body: { user_id, date, status?, check_in_time?, check_out_time?, note?, recorded_by?, device_id?, page_id?, score? }
- * - إذا ما انبعث status: نحسبه من check_in_time مقارنة بقطع المعلّم (start+grace) أو fallback.
- */
+// POST /api/attendance
 export async function recordAttendance(req, res) {
   try {
     const {
@@ -241,7 +186,6 @@ export async function recordAttendance(req, res) {
       return res.status(400).json({ message: "user_id and date required" });
     }
 
-    // cutoff خاص للمعلّم
     const cutoff = await computeUserCutoff(Number(user_id), date);
     const finalStatus = status || computeStatusFromTimes(check_in_time, cutoff);
 
@@ -277,10 +221,7 @@ export async function recordAttendance(req, res) {
   }
 }
 
-/**
- * POST /api/attendance/bulk
- * body: [{ user_id, date, status?, check_in_time?, check_out_time?, note?, recorded_by? }, ...]
- */
+// POST /api/attendance/bulk
 export async function bulkUpsertAttendance(req, res) {
   try {
     const rows = Array.isArray(req.body) ? req.body : [];
@@ -329,11 +270,7 @@ export async function bulkUpsertAttendance(req, res) {
   }
 }
 
-/**
- * POST /api/attendance/mark-absences
- * body: { date? }  // افتراضي اليوم
- * - يعلّم Absent لكل أستاذ ما عنده سجل بهاليوم.
- */
+// POST /api/attendance/mark-absences
 export async function markDailyAbsences(req, res) {
   try {
     const date = req.body?.date || new Date().toISOString().slice(0,10);

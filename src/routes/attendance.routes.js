@@ -1,4 +1,3 @@
-// src/routes/attendance.routes.js
 import express from "express";
 import {
   recordAttendance,
@@ -9,28 +8,16 @@ import {
 
 const router = express.Router();
 
-/**
- * POST /api/attendance
- * body: { user_id, date?, status?, check_in_time?, check_out_time?, note?, recorded_by?, device_id?, page_id?, score? }
- */
+// POST /api/attendance
 router.post("/", recordAttendance);
 
-/**
- * GET /api/attendance
- * query: { date?, teacherId?, teacherName?, status?, class? }
- */
+// GET /api/attendance
 router.get("/", listAttendance);
 
-/**
- * POST /api/attendance/bulk
- * body: [{ user_id, date, status?, check_in_time?, check_out_time?, note?, recorded_by? }, ...]
- */
+// POST /api/attendance/bulk
 router.post("/bulk", bulkUpsertAttendance);
 
-/**
- * POST /api/attendance/mark-absences
- * body: { date? }  // افتراضي اليوم
- */
+// POST /api/attendance/mark-absences
 router.post("/mark-absences", markDailyAbsences);
 
 export default router;
