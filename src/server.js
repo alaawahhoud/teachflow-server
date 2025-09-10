@@ -13,14 +13,15 @@ const rawAllow = (process.env.CORS_ORIGINS || process.env.FRONTEND_ORIGIN || "")
   .map(s => s.trim())
   .filter(Boolean);
 
-// إذا ما في Allowlist، منسمح للطلبات (مفيد للبيئة التطويرية)
+// نسمح بكل origins إذا ما في allowlist (مفيد للإصدارات التطويرية أو أول نشر)
+function isOriginAllowed(origin) {
+  if (!origin) return true;                 // Postman / curl
+  if (rawAllow.length === 0) return true;   // open mode
+  return rawAllow.includes(origin);
+}
+
 const corsOptions = {
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // Postman / curl
-    if (rawAllow.length === 0) return cb(null, true);
-    if (rawAllow.includes(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"));
-  },
+  origin: (origin, cb) => (isOriginAllowed(origin) ? cb(null, true) : cb(new Error("Not allowed by CORS"))),
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -28,7 +29,18 @@ const corsOptions = {
 
 app.set("trust proxy", 1);
 app.use(cors(corsOptions));
-app.options('/api/auth/login', cors()); // كمان بيمشي
+
+// ✅ مهم: فعّلي كل الـ preflight على كل المسارات
+app.options("*", cors(corsOptions));
+// أو بديل مضمون أكثر (يرجع 204 بسرعة):
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 /* ---------- Body parsers ---------- */
 app.use(express.json({ limit: "2mb" }));
