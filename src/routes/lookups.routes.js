@@ -11,7 +11,7 @@ const router = Router();
  * - class_ids: مجمعة من teacher_class_subjects و subjects و teacher_profiles.class_ids (إن وجدت)
  * - class_id: أول قيمة من class_ids (لتوافق الواجهة الحالية)
  */
-router.get("/teacher-profiles", async (_req, res) => {
+router.get("/teacher_profiles", async (_req, res) => {
   try {
     // 1) كل المدرّسين
     const [teachers] = await pool.query(`
@@ -98,7 +98,7 @@ router.get("/teacher-profiles", async (_req, res) => {
 
     res.json(out);
   } catch (e) {
-    console.error("[lookups/teacher-profiles]", e);
+    console.error("[lookups/teacher_profiles]", e);
     res.status(500).json({ message: "failed to load teacher profiles", error: e?.sqlMessage || e?.message || String(e) });
   }
 });
