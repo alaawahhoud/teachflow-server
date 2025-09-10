@@ -1,23 +1,20 @@
-import express from "express";
+// src/routes/attendance.routes.js
+import { Router } from "express";
 import {
-  recordAttendance,
   listAttendance,
-  markDailyAbsences,
+  upsertAttendance,
   bulkUpsertAttendance,
 } from "../controllers/attendance.controller.js";
 
-const router = express.Router();
-
-// POST /api/attendance
-router.post("/", recordAttendance);
+const router = Router();
 
 // GET /api/attendance
 router.get("/", listAttendance);
 
+// POST /api/attendance
+router.post("/", upsertAttendance);
+
 // POST /api/attendance/bulk
 router.post("/bulk", bulkUpsertAttendance);
-
-// POST /api/attendance/mark-absences
-router.post("/mark-absences", markDailyAbsences);
 
 export default router;
