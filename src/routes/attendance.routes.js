@@ -4,27 +4,31 @@ import {
   recordAttendance,
   listAttendance,
   markDailyAbsences,
+  bulkUpsertAttendance,
 } from "../controllers/attendance.controller.js";
 
 const router = express.Router();
 
 /**
  * POST /api/attendance
- * body: { user_id, date?, status?, check_in_time?, check_out_time?, note?, recorded_by? }
- * إذا ما بُعِثت status، بيتحدد تلقائيًا من check_in_time أو من الآن.
+ * body: { user_id, date?, status?, check_in_time?, check_out_time?, note?, recorded_by?, device_id?, page_id?, score? }
  */
 router.post("/", recordAttendance);
 
 /**
  * GET /api/attendance
- * query: { date?, from?, to?, teacher_id?, status?, page?, page_size? }
- * بفلتر من الـDB.
+ * query: { date?, teacherId?, teacherName?, status?, class? }
  */
 router.get("/", listAttendance);
 
 /**
+ * POST /api/attendance/bulk
+ * body: [{ user_id, date, status?, check_in_time?, check_out_time?, note?, recorded_by? }, ...]
+ */
+router.post("/bulk", bulkUpsertAttendance);
+
+/**
  * POST /api/attendance/mark-absences
- * يعلّم غياب للي ما عندن أي حضور اليوم (أو بتاريخ مُعطى)
  * body: { date? }  // افتراضي اليوم
  */
 router.post("/mark-absences", markDailyAbsences);

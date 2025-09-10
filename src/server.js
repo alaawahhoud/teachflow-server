@@ -51,7 +51,7 @@ import examsRoutes from "./routes/exams.routes.js";
 import studentStatusWeeksRoutes from "./routes/studentStatusWeeks.routes.js"; // ⬅️ جديد
 import scheduleRoutes from "./routes/schedule.routes.js";
 import fingerprints from "./routes/fingerprints.routes.js";
-import attendanceRoutes from "./routes/attendance.routes.js"; // عرض/سحب الحضور
+import attendanceRoutes from "./routes/attendance.routes.js";
 import espCompat from "./routes/esp-compat.routes.js";
 
 // صحّح البادئات لتكون واضحة
